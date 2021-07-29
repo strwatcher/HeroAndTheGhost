@@ -95,6 +95,10 @@ class Game:
                     self.control_processor.process_click(event)
 
             self.player.update()
+            for tile in self.tile_group:
+                tile.rect = tile.rect.move(-self.player.velocity * self.player.speed)
+
+            self.display.fill(pygame.Color('white'))
             self.tile_group.draw(self.display)
             self.player_group.draw(self.display)
 
@@ -210,6 +214,14 @@ class Entity(AnimatedSprite):
     def move(self):
         self.rect = self.rect.move(*(self.velocity * self.speed))
 
+    def change_animation(self):
+        pass
+
+    def update(self):
+        self.change_animation()
+        self.move()
+        self.next_frame()
+
     @property
     def velocity(self):
         return self.__velocity
@@ -236,11 +248,6 @@ class Player(Entity):
         super().__init__(animations, default_animation_name, groups, sprite_size, pos, speed, hp, attack_strength)
         self.__vision = DOWN
         self.__velocity = ZERO
-
-    def update(self):
-        self.change_animation()
-        self.move()
-        self.next_frame()
 
     def change_animation(self):
         next_animation = 'idle-down'
