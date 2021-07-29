@@ -42,8 +42,10 @@ def load_img(img_path, color_key=None) -> pygame.surface.Surface:
 class Game:
     def __init__(self):
         self.display = pygame.display.set_mode(flags=pygame.FULLSCREEN)
+        w, h = self.display.get_size()
         self.tile_size = (64, 64)
-        self.map_size = (20, 20)
+        t_w, t_h = self.tile_size
+        self.map_size = (w // t_w, h // t_h)
         self.tile_image = load_img(os.path.join('env', 'water-tile.png'))
         self.tile_map = TileMap(self.tile_size, self.map_size, self.tile_image)
         animations = [
@@ -78,7 +80,8 @@ class Game:
                 1
             ),
         ]
-        self.player = Player(animations, 'idle-down', tuple(), (256, 256), (0, 0), 5, 100, 10)
+        pos = (w // 2 - 256 // 2, h // 2 - 256 // 2)
+        self.player = Player(animations, 'idle-down', tuple(), (256, 256), pos, 10, 100, 10)
         self.control_processor = ControlSystem(self.player)
         self.tile_group = self.tile_map.tiles
 
@@ -87,7 +90,7 @@ class Game:
         self.player_group.add(self.player)
         running = True
         while running:
-            fps = pygame.time.Clock().tick(8)
+            fps = pygame.time.Clock().tick(16)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     sys.exit()
@@ -95,8 +98,11 @@ class Game:
                     self.control_processor.process_click(event)
 
             self.player.update()
+
+            # here need to refactor
+
             for tile in self.tile_group:
-                tile.rect = tile.rect.move(-self.player.velocity * self.player.speed)
+                tile.rect = tile.rect.move(self.player.velocity * self.player.speed * -1)
 
             self.display.fill(pygame.Color('white'))
             self.tile_group.draw(self.display)
