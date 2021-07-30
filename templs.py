@@ -208,7 +208,7 @@ class TileMap:
 class HillBar:
     def __init__(self, player: Player):
         self.pl = player
-        self.hp = pygame.font.Font(None, 20)
+        self.hp = pygame.font.Font(None, 48)
 
     def update(self, display):
         text = self.hp.render(str(self.pl.hp), True, pygame.Color('red'))
