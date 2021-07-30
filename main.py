@@ -42,71 +42,35 @@ def load_img(img_path, color_key=None) -> pygame.surface.Surface:
 class Game:
     def __init__(self):
         self.display = pygame.display.set_mode(flags=pygame.WINDOWMAXIMIZED)
-        w, h = self.display.get_size()
-        self.tile_size = (64, 64)
-        t_w, t_h = self.tile_size
-        self.map_size = (w // t_w, h // t_h)
-        self.tile_image = load_img(os.path.join('env', 'water-tile.png'))
-        self.tile_map = TileMap(self.tile_size, self.map_size, self.tile_image)
-        animations = [
-            (
-                load_img(os.path.join('knight', 'idle_down.png')),
-                'idle-down',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'idle_top.png')),
-                'idle-up',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'idle_right.png')),
-                'idle-right',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'idle_left.png')),
-                'idle-left',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'walk_down.png')),
-                'walk-down',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'walk_top.png')),
-                'walk-up',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'walk_right.png')),
-                'walk-right',
-                8,
-                1
-            ),
-            (
-                load_img(os.path.join('knight', 'walk_left.png')),
-                'walk-left',
-                8,
-                1
-            ),
-        ]
-        pos = (w // 2 - 256 // 2, h // 2 - 256 // 2)
-        self.player = Player(animations, 'idle-down', tuple(), (256, 256), pos, 10, 100, 10)
+        window_width, window_height = self.display.get_size()
+
+        tile_size = t_w, t_h = 64, 64
+        map_size = (window_width // t_w, window_height // t_h)
+        tile_image = load_img(os.path.join('env', 'water-tile.png'))
+        self.tile_map = TileMap(tile_size, map_size, tile_image)
         self.tile_group = self.tile_map.tiles
-        self.tile_group.draw(self.display)
+
+        player_animations = [
+            (load_img(os.path.join('knight', 'idle_down.png')), 'idle-down', 8, 1),
+            (load_img(os.path.join('knight', 'idle_top.png')), 'idle-up', 8, 1),
+            (load_img(os.path.join('knight', 'idle_right.png')), 'idle-right', 8, 1),
+            (load_img(os.path.join('knight', 'idle_left.png')), 'idle-left', 8, 1),
+            (load_img(os.path.join('knight', 'walk_down.png')), 'walk-down', 8, 1),
+            (load_img(os.path.join('knight', 'walk_top.png')), 'walk-up', 8, 1),
+            (load_img(os.path.join('knight', 'walk_right.png')), 'walk-right', 8, 1),
+            (load_img(os.path.join('knight', 'walk_left.png')), 'walk-left', 8, 1),
+        ]
+        player_size = p_w, p_h = 256, 256
+        pos = (window_width // 2 - p_w // 2, window_height // 2 - p_h // 2)
         self.player_group = pygame.sprite.Group()
-        self.player_group.add(self.player)
+        self.player = Player(player_animations, 'idle-down', (self.player_group,), player_size, pos, 5, 100, 10)
+
+        self.camera = Camera((self.tile_group, ), self.player)
+
+    def mainloop(self):
         running = True
         while running:
-            fps = pygame.time.Clock().tick(16)
+            fps = pygame.time.Clock().tick(15)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     sys.exit()
@@ -114,12 +78,7 @@ class Game:
                     self.player.process_click(event)
 
             self.player.update()
-
-            # here need to refactor
-
-            for tile in self.tile_group:
-                tile.rect = tile.rect.move(self.player.velocity * self.player.speed * -1)
-
+            self.camera.move()
             self.display.fill(pygame.Color('white'))
             self.tile_group.draw(self.display)
             self.player_group.draw(self.display)
@@ -170,13 +129,12 @@ class AnimatedSprite(pygame.sprite.Sprite):
                  groups: Tuple[pygame.sprite.Group],
                  sprite_size: Tuple[int, int],
                  pos: Tuple[int, int],
-                 # Probably need to add pos to AnimatedSprite
                  ):
         super().__init__(*groups)
 
         self.animations: Dict[str, Animation] = dict()
         self.read_animations(animations, sprite_size)
-
+        self.sprite_size = sprite_size
         self.cur_animation = self.animations.get(default_animation_name)
         self.image = self.cur_animation.cur_frame
         self.__rect = pygame.rect.Rect(*pos, *sprite_size)
@@ -231,8 +189,12 @@ class Entity(AnimatedSprite):
         self.speed = speed
         self.hp = hp
         self.attack_strength = attack_strength
-        self.vision = pygame.Vector2(0, 1)
-        self.__velocity = pygame.Vector2(0, 0)
+
+        self.__vision = None
+        self.__velocity = None
+
+        self.vision = DOWN
+        self.velocity = ZERO
 
     def move(self):
         if self.velocity != ZERO:
@@ -240,12 +202,12 @@ class Entity(AnimatedSprite):
             self.vision = pygame.Vector2(0, 0) + self.velocity
             print(self.vision == self.velocity)
 
-    def change_animation(self):
+    def switch_animation(self):
         pass
 
     def update(self):
         self.move()
-        self.change_animation()
+        self.switch_animation()
         self.next_frame()
 
     @property
@@ -254,7 +216,15 @@ class Entity(AnimatedSprite):
 
     @velocity.setter
     def velocity(self, value: pygame.Vector2):
-        self.__velocity = value
+        self.__velocity = pygame.Vector2(0, 0) + value
+
+    @property
+    def vision(self):
+        return self.__vision
+
+    @vision.setter
+    def vision(self, value):
+        self.__vision = pygame.Vector2(0, 0) + value
 
     # def attack(self, direction: pygame.Vector2):
     # def get_damage(self, attacked: Entity)
@@ -272,6 +242,11 @@ class Player(Entity):
                  attack_strength: int,
                  ):
         super().__init__(animations, default_animation_name, groups, sprite_size, pos, speed, hp, attack_strength)
+        self.hitbox = pygame.rect.Rect(50, 0, sprite_size[0] - 100, sprite_size[1] - 40)
+
+    def next_frame(self):
+        super(Player, self).next_frame()
+        pygame.draw.rect(self.image, pygame.Color('yellow'), self.hitbox, 2)
 
     def process_click(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
@@ -294,7 +269,7 @@ class Player(Entity):
             elif event.key == pygame.K_d:
                 self.velocity -= RIGHT
 
-    def change_animation(self):
+    def switch_animation(self):
         next_animation = 'idle-down'
         if self.vision.y == 1:
             next_animation = 'idle-down'
@@ -318,32 +293,16 @@ class Player(Entity):
         self.set_animation(next_animation)
 
 
-class ControlSystem:
-    def __init__(self, player: Player):
+class Camera:
+    def __init__(self, groups_to_move: Tuple[pygame.sprite.Group], player: Player):
+        self.groups = groups_to_move
         self.player = player
 
-    def process_click(self, event: pygame.event.Event):
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_w:
-                self.player.velocity += UP
-            elif event.key == pygame.K_s:
-                self.player.velocity += DOWN
-            elif event.key == pygame.K_a:
-                self.player.velocity += LEFT
-            elif event.key == pygame.K_d:
-                self.player.velocity += RIGHT
-
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_w:
-                self.player.velocity -= UP
-            elif event.key == pygame.K_s:
-                self.player.velocity -= DOWN
-            elif event.key == pygame.K_a:
-                self.player.velocity -= LEFT
-            elif event.key == pygame.K_d:
-                self.player.velocity -= RIGHT
-
-        # print(self.player.rect)
+    def move(self):
+        if self.player.velocity != ZERO:
+            for group in self.groups:
+                for sprite in group:
+                    sprite.rect = sprite.rect.move(self.player.velocity.normalize() * self.player.speed * -1)
 
 
 class Enemy(Entity):
@@ -380,7 +339,7 @@ class TileMap:
         return self.__tiles
 
 
-# Create common class for menus
+# Create common class for menus ?
 class MainMenu:
     def __init__(self):
         pass
@@ -392,4 +351,4 @@ class RestartMenu:
 
 
 if __name__ == '__main__':
-    Game()
+    Game().mainloop()
