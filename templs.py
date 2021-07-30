@@ -4,6 +4,51 @@ from tools import *
 import sys
 
 
+###############################################
+# Enemy
+################################################
+
+class Enemy(Entity):
+    def __init__(self,
+                 animations: List[Tuple[pygame.surface.Surface, str, int, int]],
+                 default_animation_name: str,
+                 groups: Tuple[pygame.sprite.Group],
+                 sprite_size: Tuple[int, int],
+                 pos: Tuple[int, int],
+                 speed: int,
+                 hp: int,
+                 attack_strength: int,
+                 hunted: Entity
+                 ):
+        super().__init__(animations, default_animation_name, groups, sprite_size, pos, speed, hp)
+        self.hunted = hunted
+        self.attack_strength = attack_strength
+
+    def calc_velocity(self):
+        hunted_pos = self.hunted.rect.center
+        pos = self.rect.center
+        motion_line = pygame.Vector2(hunted_pos[0] - pos[0], hunted_pos[1] - pos[1])
+        if motion_line != ZERO:
+            self.velocity = (motion_line.normalize() * self.speed)
+
+    def attack(self):
+        if self.rect.colliderect(self.hunted.rect):
+            self.hunted.get_damage(self.attack_strength)
+
+    def update(self):
+        self.calc_velocity()
+        self.attack()
+        super(Enemy, self).update()
+
+    def get_damage(self, damage):
+        super(Enemy, self).get_damage(damage)
+        if self.hp < 0:
+            self.attack_strength = 0
+
+
+################################################
+# AttackArea and Player
+################################################
 class AttackArea(AnimatedSprite):
     def __init__(self,
                  animations: List[Tuple[pygame.surface.Surface, str, int, int]],
@@ -16,6 +61,7 @@ class AttackArea(AnimatedSprite):
         super().__init__(animations, default_animation_name, groups, sprite_size, pos)
 
         self.image = pygame.transform.rotate(self.image, angle)
+        self.pos = pos
         self.angle = angle
 
     def next_frame(self) -> bool:
@@ -24,7 +70,8 @@ class AttackArea(AnimatedSprite):
         else:
             super().next_frame()
             self.image = pygame.transform.rotate(self.image, self.angle)
-            pygame.draw.rect(self.image, pygame.Color('red'), (0, 0, *self.sprite_size), 2)
+            self.rect = self.image.get_rect()
+            self.rect.move_ip(self.pos)
             return True
 
 
@@ -38,12 +85,11 @@ class Player(Entity):
                  speed: int,
                  hp: int,
                  attack_strength: int,
-                 attacks_group: pygame.sprite.Group
+                 enemies: List[Enemy]
                  ):
         super().__init__(animations, default_animation_name, groups, sprite_size, pos, speed, hp)
         self.attack_strength = attack_strength
-        self.hitbox = pygame.rect.Rect(20, 0, sprite_size[0] - 40, sprite_size[1] - 20)
-        self.attacks_group = attacks_group
+        self.attacked_group = enemies
         self.cur_attack = None
 
     def get_damage(self, damage):
@@ -52,22 +98,20 @@ class Player(Entity):
             sys.exit(0)
 
     def attack(self):
-        pos = self.rect.x + self.sprite_size[0] * self.vision.x, self.rect.y + self.sprite_size[1] * self.vision.y
+        pos = self.hitbox.x + self.sprite_size[0] * self.vision.x, self.hitbox.y + self.sprite_size[1] * self.vision.y
         angle = self.vision.angle_to(RIGHT)
 
         self.cur_attack = AttackArea([(load_img(os.path.join('knight', 'attack.png')), 'attack', 6, 1), ],
-                                     'attack', tuple(), self.sprite_size, pos, angle)
+                                     'attack', self.groups, self.sprite_size, pos, angle)
 
-        self.cur_attack.add(self.attacks_group)
+        for enemy in self.attacked_group:
+            if self.cur_attack.rect.colliderect(enemy.rect):
+                enemy.get_damage(self.attack_strength)
 
-    def next_frame(self):
-        super(Player, self).next_frame()
-        pygame.draw.rect(self.image, pygame.Color('yellow'), self.hitbox, 2)
-
-    def process_attack(self):
+    def process_attack(self, group):
         if self.cur_attack is not None:
             if not self.cur_attack.next_frame():
-                self.attacks_group.remove(self.cur_attack)
+                group.remove(self.cur_attack)
                 self.cur_attack = None
                 return False
             else:
@@ -124,16 +168,11 @@ class Player(Entity):
         self.set_animation(next_animation)
 
 
-
-
-
-class Enemy(Entity):
-    def __init__(self):
-        super().__init__()
-
+################################################
+# Tile and TileMap
+################################################
 
 class Tile(StaticSprite):
-    # need to create entity game_object and add possibility to create tiles with animation
     def __init__(self, size: Tuple[int, int], pos: Tuple[int, int], image: pygame.surface.Surface, groups: Tuple):
         super().__init__(size, pos, image, groups)
 

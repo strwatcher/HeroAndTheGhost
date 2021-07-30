@@ -1,6 +1,7 @@
 import pygame
 from tools import *
 from templs import *
+import random
 
 
 class Game:
@@ -13,7 +14,7 @@ class Game:
         map_size = (window_width // t_w, window_height // t_h)
         tile_image = load_img(os.path.join('env', 'water-tile.png'))
         self.tile_map = TileMap(tile_size, map_size, tile_image)
-        self.tile_group = self.tile_map.tiles
+        self.tile_group: pygame.sprite.Group = self.tile_map.tiles
 
         player_animations = [
             (load_img(os.path.join('knight', 'idle_down.png')), 'idle-down', 8, 1),
@@ -27,25 +28,39 @@ class Game:
         ]
         player_size = p_w, p_h = 38 * 4, 52 * 4
         pos = (window_width // 2 - p_w // 2, window_height // 2 - p_h // 2)
-        self.player_group = pygame.sprite.Group()
-        self.attacks_group = pygame.sprite.Group()
+        self.all_sprites = pygame.sprite.Group()
+        self.enemies = list()
+
         self.player = Player(player_animations,
                              'idle-down',
-                             (self.player_group,),
+                             (self.all_sprites,),
                              player_size,
                              pos,
                              5,
                              100,
                              10,
-                             self.attacks_group)
+                             self.enemies)
 
-        self.camera = Camera((self.tile_group,), self.player)
+        for i in range(10):
+            self.enemies.append(Enemy(
+                [((load_img(os.path.join('enemy', 'tiny_ghost.png'))), 'enemy', 8, 1), ],
+                'enemy',
+                (self.all_sprites,),
+                (100, 100),
+                (random.randint(0, 1000), random.randint(0, 1000)),
+                10,
+                1,
+                1,
+                self.player
+            ))
+
+        self.camera = Camera((self.tile_group, self.enemies), self.player)
 
     def mainloop(self):
         running = True
         while running:
             fps = pygame.time.Clock().tick(15)
-            attack_playing = self.player.process_attack()
+            attack_playing = self.player.process_attack(self.all_sprites)
             keys = pygame.key.get_pressed()
             if not attack_playing:
                 self.player.process_click(keys)
@@ -57,10 +72,13 @@ class Game:
                     sys.exit()
 
             self.player.update()
+            for enemy in self.enemies:
+                enemy.update()
+
             self.camera.move()
             self.display.fill(pygame.Color('white'))
+
             self.tile_group.draw(self.display)
-            self.player_group.draw(self.display)
-            self.attacks_group.draw(self.display)
+            self.all_sprites.draw(self.display)
 
             pygame.display.flip()

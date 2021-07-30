@@ -110,13 +110,17 @@ class Entity(AnimatedSprite):
         self.vision = DOWN
         self.velocity = ZERO
 
+        self.hitbox = self.rect.move(20, 0)
+        self.hitbox.width -= 20
+        self.hitbox.height -= 20
+
         self.groups = groups
 
     def move(self):
         if self.velocity != ZERO:
             self.rect = self.rect.move(*(self.velocity.normalize() * self.speed))
+            self.hitbox = self.hitbox.move(*(self.velocity.normalize() * self.speed))
             self.vision = pygame.Vector2(0, 0) + self.velocity
-            print(self.vision == self.velocity)
 
     def switch_animation(self):
         pass
@@ -129,8 +133,7 @@ class Entity(AnimatedSprite):
     def get_damage(self, damage):
         self.hp -= damage
         if self.hp < 0:
-            for group in self.groups:
-                group.remove(self)
+            self.kill()
 
     @property
     def velocity(self):
@@ -153,7 +156,7 @@ class Entity(AnimatedSprite):
 
 
 class Camera:
-    def __init__(self, groups_to_move: Tuple[pygame.sprite.Group], hunted_entity: Entity):
+    def __init__(self, groups_to_move: Tuple, hunted_entity: Entity):
         self.groups = groups_to_move
         self.hunted = hunted_entity
 
