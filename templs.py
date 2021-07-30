@@ -1,6 +1,9 @@
+import pygame
+
 from bases import *
 from constants import *
 from tools import *
+import game
 import sys
 
 
@@ -95,7 +98,8 @@ class Player(Entity):
     def get_damage(self, damage):
         super(Player, self).get_damage(damage)
         if self.hp < 0:
-            sys.exit(0)
+            pygame.quit()
+            game.Game().mainloop()
 
     def attack(self):
         pos = self.hitbox.x + self.sprite_size[0] // 2 * self.vision.x,\
@@ -199,3 +203,14 @@ class TileMap:
     @property
     def tiles(self):
         return self.__tiles
+
+
+class HillBar:
+    def __init__(self, player: Player):
+        self.pl = player
+        self.hp = pygame.font.Font(None, 20)
+
+    def update(self, display):
+        text = self.hp.render(str(self.pl.hp), True, pygame.Color('red'))
+        display.blit(text, (50, 50))
+

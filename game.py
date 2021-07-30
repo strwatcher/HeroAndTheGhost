@@ -41,6 +41,8 @@ class Game:
                              10,
                              self.enemies)
 
+        self.hp_bar = HillBar(self.player)
+
         for i in range(4):
             self.enemies.append(Enemy(
                 [((load_img(os.path.join('enemy', 'tiny_ghost.png'))), 'enemy', 8, 1), ],
@@ -97,5 +99,5 @@ class Game:
 
             self.tile_group.draw(self.display)
             self.all_sprites.draw(self.display)
-
+            self.hp_bar.update(self.display)
             pygame.display.flip()

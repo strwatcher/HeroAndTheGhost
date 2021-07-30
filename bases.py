@@ -132,7 +132,7 @@ class Entity(AnimatedSprite):
 
     def get_damage(self, damage):
         self.hp -= damage
-        if self.hp < 0:
+        if self.hp <= 0:
             self.kill()
 
     @property
