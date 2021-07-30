@@ -41,7 +41,7 @@ def load_img(img_path, color_key=None) -> pygame.surface.Surface:
 
 class Game:
     def __init__(self):
-        self.display = pygame.display.set_mode(flags=pygame.FULLSCREEN)
+        self.display = pygame.display.set_mode(flags=pygame.WINDOWMAXIMIZED)
         w, h = self.display.get_size()
         self.tile_size = (64, 64)
         t_w, t_h = self.tile_size
@@ -52,6 +52,24 @@ class Game:
             (
                 load_img(os.path.join('knight', 'idle_down.png')),
                 'idle-down',
+                8,
+                1
+            ),
+            (
+                load_img(os.path.join('knight', 'idle_top.png')),
+                'idle-up',
+                8,
+                1
+            ),
+            (
+                load_img(os.path.join('knight', 'idle_right.png')),
+                'idle-right',
+                8,
+                1
+            ),
+            (
+                load_img(os.path.join('knight', 'idle_left.png')),
+                'idle-left',
                 8,
                 1
             ),
@@ -82,9 +100,7 @@ class Game:
         ]
         pos = (w // 2 - 256 // 2, h // 2 - 256 // 2)
         self.player = Player(animations, 'idle-down', tuple(), (256, 256), pos, 10, 100, 10)
-        self.control_processor = ControlSystem(self.player)
         self.tile_group = self.tile_map.tiles
-
         self.tile_group.draw(self.display)
         self.player_group = pygame.sprite.Group()
         self.player_group.add(self.player)
@@ -95,7 +111,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     sys.exit()
                 if event.type in (pygame.KEYUP, pygame.KEYDOWN):
-                    self.control_processor.process_click(event)
+                    self.player.process_click(event)
 
             self.player.update()
 
@@ -215,17 +231,21 @@ class Entity(AnimatedSprite):
         self.speed = speed
         self.hp = hp
         self.attack_strength = attack_strength
-        self.__velocity = ZERO
+        self.vision = pygame.Vector2(0, 1)
+        self.__velocity = pygame.Vector2(0, 0)
 
     def move(self):
-        self.rect = self.rect.move(*(self.velocity * self.speed))
+        if self.velocity != ZERO:
+            self.rect = self.rect.move(*(self.velocity.normalize() * self.speed))
+            self.vision = pygame.Vector2(0, 0) + self.velocity
+            print(self.vision == self.velocity)
 
     def change_animation(self):
         pass
 
     def update(self):
-        self.change_animation()
         self.move()
+        self.change_animation()
         self.next_frame()
 
     @property
@@ -252,11 +272,38 @@ class Player(Entity):
                  attack_strength: int,
                  ):
         super().__init__(animations, default_animation_name, groups, sprite_size, pos, speed, hp, attack_strength)
-        self.__vision = DOWN
-        self.__velocity = ZERO
+
+    def process_click(self, event: pygame.event.Event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_w:
+                self.velocity += UP
+            elif event.key == pygame.K_s:
+                self.velocity += DOWN
+            elif event.key == pygame.K_a:
+                self.velocity += LEFT
+            elif event.key == pygame.K_d:
+                self.velocity += RIGHT
+
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_w:
+                self.velocity -= UP
+            elif event.key == pygame.K_s:
+                self.velocity -= DOWN
+            elif event.key == pygame.K_a:
+                self.velocity -= LEFT
+            elif event.key == pygame.K_d:
+                self.velocity -= RIGHT
 
     def change_animation(self):
         next_animation = 'idle-down'
+        if self.vision.y == 1:
+            next_animation = 'idle-down'
+        elif self.vision.y == -1:
+            next_animation = 'idle-up'
+        if self.vision.x == 1:
+            next_animation = 'idle-right'
+        elif self.vision.x == -1:
+            next_animation = 'idle-left'
 
         if self.velocity.y == 1:
             next_animation = 'walk-down'
@@ -296,7 +343,7 @@ class ControlSystem:
             elif event.key == pygame.K_d:
                 self.player.velocity -= RIGHT
 
-        print(self.player.rect)
+        # print(self.player.rect)
 
 
 class Enemy(Entity):
