@@ -98,7 +98,8 @@ class Player(Entity):
             sys.exit(0)
 
     def attack(self):
-        pos = self.hitbox.x + self.sprite_size[0] * self.vision.x, self.hitbox.y + self.sprite_size[1] * self.vision.y
+        pos = self.hitbox.x + self.sprite_size[0] // 2 * self.vision.x,\
+              self.hitbox.y + self.sprite_size[1] // 2 * self.vision.y
         angle = self.vision.angle_to(RIGHT)
 
         self.cur_attack = AttackArea([(load_img(os.path.join('knight', 'attack.png')), 'attack', 6, 1), ],

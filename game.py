@@ -1,5 +1,5 @@
 import pygame
-from tools import *
+
 from templs import *
 import random
 
@@ -41,7 +41,7 @@ class Game:
                              10,
                              self.enemies)
 
-        for i in range(10):
+        for i in range(4):
             self.enemies.append(Enemy(
                 [((load_img(os.path.join('enemy', 'tiny_ghost.png'))), 'enemy', 8, 1), ],
                 'enemy',
@@ -58,8 +58,25 @@ class Game:
 
     def mainloop(self):
         running = True
+        count = 0
         while running:
+            count += 1
             fps = pygame.time.Clock().tick(15)
+            if count // fps == 1:
+                count = 0
+                for i in range(4):
+                    self.enemies.append(Enemy(
+                        [((load_img(os.path.join('enemy', 'tiny_ghost.png'))), 'enemy', 8, 1), ],
+                        'enemy',
+                        (self.all_sprites,),
+                        (100, 100),
+                        (random.randint(0, 1000), random.randint(0, 1000)),
+                        10,
+                        1,
+                        1,
+                        self.player
+                    ))
+
             attack_playing = self.player.process_attack(self.all_sprites)
             keys = pygame.key.get_pressed()
             if not attack_playing:
