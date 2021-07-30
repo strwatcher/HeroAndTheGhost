@@ -1,10 +1,7 @@
-import pygame
-
 from bases import *
 from constants import *
 from tools import *
 import game
-import sys
 
 
 ###############################################
@@ -213,4 +210,3 @@ class HillBar:
     def update(self, display):
         text = self.hp.render(str(self.pl.hp), True, pygame.Color('red'))
         display.blit(text, (50, 50))
-
